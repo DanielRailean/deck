@@ -37,6 +37,7 @@ var dependencyOrder = [][]types.EntityType{
 		types.Consumer,
 	},
 	{
+		types.ConsumerGroup,
 		types.RBACEndpointPermission,
 		types.SNI,
 		types.Service,
@@ -50,6 +51,8 @@ var dependencyOrder = [][]types.EntityType{
 		types.ServiceVersion,
 		types.Route,
 		types.Target,
+		types.ConsumerGroupConsumer,
+		types.ConsumerGroupPlugin,
 	},
 	{
 		types.Plugin,

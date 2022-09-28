@@ -76,6 +76,7 @@ func (b *stateBuilder) build() (*utils.KongRawState, *utils.KonnectRawState, err
 	b.routes()
 	b.upstreams()
 	b.consumers()
+	b.consumerGroups()
 	b.plugins()
 	b.enterprise()
 
@@ -87,6 +88,65 @@ func (b *stateBuilder) build() (*utils.KongRawState, *utils.KonnectRawState, err
 		return nil, nil, b.err
 	}
 	return b.rawState, b.konnectRawState, nil
+}
+
+func (b *stateBuilder) consumerGroups() {
+	if b.err != nil {
+		return
+	}
+
+	for _, cg := range b.targetContent.ConsumerGroups {
+		cg := cg
+		if utils.Empty(cg.ID) {
+			current, err := b.currentState.ConsumerGroups.Get(*cg.Name)
+			if err == state.ErrNotFound {
+				cg.ID = uuid()
+			} else if err != nil {
+				b.err = err
+				return
+			} else {
+				cg.ID = kong.String(*current.ID)
+			}
+		}
+		utils.MustMergeTags(&cg.ConsumerGroup, b.selectTags)
+
+		cgo := kong.ConsumerGroupObject{
+			ConsumerGroup: &cg.ConsumerGroup,
+		}
+
+		for _, consumer := range cg.Consumers {
+			if utils.Empty(consumer.ID) {
+				current, err := b.currentState.Consumers.Get(*consumer.Username)
+				if err == state.ErrNotFound {
+					consumer.ID = uuid()
+				} else if err != nil {
+					b.err = err
+					return
+				} else {
+					consumer.ID = kong.String(*current.ID)
+				}
+			}
+			cgo.Consumers = append(cgo.Consumers, consumer)
+		}
+
+		for _, plugin := range cg.Plugins {
+			if utils.Empty(plugin.ID) {
+				current, err := b.currentState.ConsumerGroupPlugins.Get(
+					*plugin.Name, *cg.ConsumerGroup.ID,
+				)
+				if err == state.ErrNotFound {
+					plugin.ID = uuid()
+				} else if err != nil {
+					b.err = err
+					return
+				} else {
+					plugin.ID = kong.String(*current.ID)
+				}
+			}
+			cgo.Plugins = append(cgo.Plugins, plugin)
+		}
+		b.rawState.ConsumerGroups = append(b.rawState.ConsumerGroups, &cgo)
+	}
 }
 
 func (b *stateBuilder) certificates() {

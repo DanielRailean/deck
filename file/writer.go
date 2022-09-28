@@ -102,6 +102,11 @@ func KongStateToFile(kongState *state.KongState, config WriteConfig) error {
 		return err
 	}
 
+	err = populateConsumerGroups(kongState, file, config)
+	if err != nil {
+		return err
+	}
+
 	return WriteContentToFile(file, config.Filename, config.FileFormat)
 }
 
@@ -631,6 +636,52 @@ func populateConsumers(kongState *state.KongState, file *Content,
 	}
 	sort.SliceStable(file.Consumers, func(i, j int) bool {
 		return compareOrder(file.Consumers[i], file.Consumers[j])
+	})
+	return nil
+}
+
+func populateConsumerGroups(kongState *state.KongState, file *Content,
+	config WriteConfig,
+) error {
+	consumerGroups, err := kongState.ConsumerGroups.GetAll()
+	if err != nil {
+		return err
+	}
+	consumers, err := kongState.ConsumerGroupConsumers.GetAll()
+	if err != nil {
+		return err
+	}
+	plugins, err := kongState.ConsumerGroupPlugins.GetAll()
+	if err != nil {
+		return err
+	}
+	for _, cg := range consumerGroups {
+		group := FConsumerGroupObject{ConsumerGroup: cg.ConsumerGroup}
+		for _, consumer := range consumers {
+			if consumer.ConsumerGroup.ID != nil && cg.ID != nil {
+				if *consumer.ConsumerGroup.ID == *cg.ID {
+					utils.ZeroOutID(consumer.Consumer, consumer.Consumer.Username, config.WithID)
+					utils.ZeroOutTimestamps(consumer.Consumer)
+					group.Consumers = append(group.Consumers, consumer.Consumer)
+				}
+			}
+		}
+		for _, plugin := range plugins {
+			if plugin.ID != nil && cg.ID != nil {
+				if *plugin.ConsumerGroup.ID == *cg.ID {
+					utils.ZeroOutID(plugin, plugin.Name, config.WithID)
+					utils.ZeroOutID(plugin.ConsumerGroup, plugin.ConsumerGroup.Name, config.WithID)
+					utils.ZeroOutTimestamps(plugin.ConsumerGroupPlugin.ConsumerGroup)
+					group.Plugins = append(group.Plugins, &plugin.ConsumerGroupPlugin)
+				}
+			}
+		}
+		utils.ZeroOutID(&group, group.Name, config.WithID)
+		utils.ZeroOutTimestamps(&group)
+		file.ConsumerGroups = append(file.ConsumerGroups, group)
+	}
+	sort.SliceStable(file.ConsumerGroups, func(i, j int) bool {
+		return compareOrder(file.ConsumerGroups[i], file.ConsumerGroups[j])
 	})
 	return nil
 }
