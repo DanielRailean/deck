@@ -19,18 +19,19 @@ import (
 	"github.com/kong/go-kong/kong"
 )
 
-type entityState struct 
+type EntityState struct 
 {
 	Name string
+	Kind string
 	OldState any
 	NewState any
 }
 
 type EntityChanges struct 
 {
-	Creating []entityState
-	Updating []entityState
-	Deleting []entityState
+	Creating []EntityState
+	Updating []EntityState
+	Deleting []EntityState
 }
 
 var errEnqueueFailed = errors.New("failed to queue event")
@@ -417,9 +418,9 @@ func (sc *Syncer) Solve(ctx context.Context, parallelism int, dry bool, isJsonOu
 	}
 	
 	output := EntityChanges{
-			Creating: []entityState{},
-			Updating: []entityState{},
-			Deleting: []entityState{},
+			Creating: []EntityState{},
+			Updating: []EntityState{},
+			Deleting: []EntityState{},
 		}
 	
 	errs := sc.Run(ctx, parallelism, func(e crud.Event) (crud.Arg, error) {
@@ -428,10 +429,11 @@ func (sc *Syncer) Solve(ctx context.Context, parallelism int, dry bool, isJsonOu
 
 		c := e.Obj.(state.ConsoleString)
 		
-		item := entityState{
+		item := EntityState{
 			OldState: e.Obj,
 			NewState: e.OldObj,
 			Name: c.Console(),
+			Kind: string(e.Kind),
 		}
 		switch e.Op {
 		case crud.Create:
